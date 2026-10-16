@@ -4,24 +4,30 @@
 //! returns the three closest passages with their page numbers. Served over A2A
 //! so the Game Master can ask this agent instead of guessing the rules.
 //!
-//! Build the knowledge base once, then run the agent:
+//! Start ExtendDB, build the knowledge base once, then run the agent:
+//!   extenddb serve --foreground      (its own terminal, from the repo root)
 //!   cargo run --release --bin ch5-create-knowledge-base
 //!   cargo run --bin ch5-rules-agent
 //!
 //! Environment overrides: MODEL_ID, EMBEDDING_MODEL_ID, AWS_REGION, RUST_LOG,
-//! plus RULES_AGENT_BIND (default 127.0.0.1:8000).
+//! AWS_ENDPOINT_URL_DYNAMODB (default http://127.0.0.1:18443), RULES_TABLE
+//! (default RulesPassages), plus RULES_AGENT_BIND (default 127.0.0.1:8000).
 
+use std::collections::HashMap;
 use std::net::SocketAddr;
-use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
 use async_trait::async_trait;
 use aws_sdk_bedrockruntime::Client;
 use aws_sdk_bedrockruntime::error::DisplayErrorContext;
 use aws_sdk_bedrockruntime::primitives::Blob;
+use aws_sdk_dynamodb as dynamodb;
 use axum::extract::State;
 use axum::routing::{get, post};
 use axum::{Json, Router};
+use dynamodb::config::{BehaviorVersion, Credentials, Region};
+use dynamodb::error::{ProvideErrorMetadata, SdkError};
+use dynamodb::types::AttributeValue;
 use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
 use strands_agents::a2a::server::rpc_dispatch;
@@ -38,10 +44,10 @@ const SYSTEM_PROMPT: &str = "You are a 5e rules expert. For each rules question,
 const DEFAULT_PORT: u16 = 8000;
 const TOP_K: usize = 3;
 
-/// Each passage as `[Page N] passage`, blank-line separated.
-fn format_passages(hits: &[(f32, &Passage)]) -> String {
+/// The same layout as the Python tool: `[Page N] passage`, blank-line separated.
+fn format_passages(hits: &[(f64, Chunk)]) -> String {
     hits.iter()
-        .map(|(_, p)| format!("[Page {}] {}", p.chunk.page, p.chunk.text))
+        .map(|(_, c)| format!("[Page {}] {}", c.page, c.text))
         .collect::<Vec<_>>()
         .join("\n\n")
 }
@@ -54,9 +60,9 @@ struct QueryRules {
 impl QueryRules {
     async fn lookup(&self, query: &str) -> KbResult<String> {
         let vector = self.embedder.embed(query).await?;
-        let hits = self.kb.search(&vector, TOP_K);
-        for (score, p) in &hits {
-            tracing::info!(page = p.chunk.page, score = format!("{score:.3}"), "match");
+        let hits = self.kb.search(&vector, TOP_K).await?;
+        for (score, c) in &hits {
+            tracing::info!(page = c.page, score = format!("{score:.3}"), "match");
         }
         Ok(format_passages(&hits))
     }
@@ -117,9 +123,11 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         )
         .init();
 
-    // Loading at startup fails before the server is advertised, not in the
-    // middle of a game.
-    let kb = KnowledgeBase::load(&kb_path()).map_err(|e| e.to_string())?;
+    // Python opens ChromaDB on the first query; opening the table at startup
+    // fails before the server is advertised, not in the middle of a game.
+    let kb = KnowledgeBase::open(&extenddb_endpoint(), &rules_table())
+        .await
+        .map_err(|e| e.to_string())?;
     let embedder = Embedder::from_env().await;
     // Vectors from two embedding models live in different spaces: comparing
     // them returns confident nonsense, so refuse instead.
@@ -131,7 +139,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         )
         .into());
     }
-    tracing::info!(passages = kb.passages.len(), model = %kb.model_id, "knowledge base loaded");
+    tracing::info!(passages = kb.passages, table = %kb.table, model = %kb.model_id, "knowledge base opened");
 
     let agent = AgentBuilder::new()
         .model(Box::new(game_master_model().await?))
@@ -160,27 +168,51 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     Ok(())
 }
 
-// The knowledge base on disk. The builder writes it and this agent reads it,
-// so both files carry the same types and the same `Embedder`: keep the two
-// copies identical.
+// The knowledge base, the Rust side of the Python chapter's ChromaDB
+// collection: Basic Rules passages and their Titan embeddings, in a local
+// ExtendDB table with a vector index. ExtendDB answers the DynamoDB API, so
+// this is plain `aws-sdk-dynamodb` code. The builder writes the table and this
+// agent searches it, so what both files need (the types, the ExtendDB client,
+// the search and the `Embedder`) is the same code in each: keep the two copies
+// identical.
 type KbResult<T> = std::result::Result<T, Box<dyn std::error::Error + Send + Sync>>;
 
 /// Verified live (us-west-2, 2026-10-19, `aws bedrock get-foundation-model`):
 /// `ACTIVE`, output modality `EMBEDDING`. Override with `EMBEDDING_MODEL_ID`.
 const DEFAULT_EMBEDDING_MODEL_ID: &str = "amazon.titan-embed-text-v2:0";
-/// Titan V2 offers 256, 512 or 1024. 512 keeps the file small and search sharp.
+/// Titan V2 offers 256, 512 or 1024. 512 keeps the table small and search sharp.
 const EMBEDDING_DIMENSIONS: usize = 512;
+
+/// ExtendDB's developer mode: plain HTTP, loopback only. Override with the AWS
+/// SDKs' standard `AWS_ENDPOINT_URL_DYNAMODB`.
+const DEFAULT_EXTENDDB_ENDPOINT: &str = "http://127.0.0.1:18443";
+/// Override with `RULES_TABLE`.
+const DEFAULT_RULES_TABLE: &str = "RulesPassages";
+const VECTOR_INDEX: &str = "rules-embedding";
+/// Not a passage: the item that records which model embedded the table. The
+/// builder writes it last, so a build that stopped halfway has none.
+const METADATA_ID: &str = "knowledge_base";
+/// Developer mode seeds AWS's documented example key pair, prints it at startup
+/// and checks every request's signature against it. It opens nothing but a
+/// local developer-mode server, so it is not a secret.
+const DEV_ACCESS_KEY_ID: &str = "AKIAIOSFODNN7EXAMPLE";
+const DEV_SECRET_ACCESS_KEY: &str = "wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY";
+/// ExtendDB's own region, which every request signature names.
+const EXTENDDB_REGION: &str = "us-east-1";
+const START_EXTENDDB: &str = "extenddb serve --foreground";
+const BUILD_KNOWLEDGE_BASE: &str = "cargo run --release --bin ch5-create-knowledge-base";
 
 fn embedding_model_id() -> String {
     std::env::var("EMBEDDING_MODEL_ID").unwrap_or_else(|_| DEFAULT_EMBEDDING_MODEL_ID.to_string())
 }
 
-fn utils_dir() -> PathBuf {
-    PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("5_a2a_integration/utils")
+fn extenddb_endpoint() -> String {
+    std::env::var("AWS_ENDPOINT_URL_DYNAMODB")
+        .unwrap_or_else(|_| DEFAULT_EXTENDDB_ENDPOINT.to_string())
 }
 
-fn kb_path() -> PathBuf {
-    utils_dir().join("rules_knowledge_base.json")
+fn rules_table() -> String {
+    std::env::var("RULES_TABLE").unwrap_or_else(|_| DEFAULT_RULES_TABLE.to_string())
 }
 
 /// A passage cut from the PDF, before it is embedded.
@@ -191,52 +223,169 @@ struct Chunk {
     page: usize,
 }
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-struct Passage {
-    #[serde(flatten)]
-    chunk: Chunk,
-    embedding: Vec<f32>,
+/// A DynamoDB client for ExtendDB's developer mode. Nothing is sent before the
+/// first call.
+fn extenddb_client(endpoint: &str) -> dynamodb::Client {
+    let config = dynamodb::Config::builder()
+        .behavior_version(BehaviorVersion::latest())
+        .region(Region::new(EXTENDDB_REGION))
+        .endpoint_url(endpoint)
+        .credentials_provider(Credentials::new(
+            DEV_ACCESS_KEY_ID,
+            DEV_SECRET_ACCESS_KEY,
+            None,
+            None,
+            "extenddb-dev-mode",
+        ))
+        .build();
+    dynamodb::Client::from_conf(config)
 }
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+/// The table the builder writes and the Rules Agent searches.
+#[derive(Debug, Clone)]
 struct KnowledgeBase {
-    source: String,
+    client: dynamodb::Client,
+    endpoint: String,
+    table: String,
+    /// The embedding model the passages were embedded with.
     model_id: String,
-    dimensions: usize,
-    passages: Vec<Passage>,
+    passages: usize,
 }
 
 impl KnowledgeBase {
+    /// Open the table the builder wrote.
+    ///
     /// # Errors
     ///
-    /// Fails when the file is missing (with the command that builds it) or is
-    /// not a knowledge base.
-    fn load(path: &Path) -> KbResult<Self> {
-        let bytes = std::fs::read(path).map_err(|e| {
+    /// Fails when ExtendDB is not running or the table does not exist yet
+    /// (each with the command that fixes it), or when the build that wrote
+    /// the table stopped before the end.
+    async fn open(endpoint: &str, table: &str) -> KbResult<Self> {
+        let client = extenddb_client(endpoint);
+        let found = client
+            .get_item()
+            .table_name(table)
+            .key("id", AttributeValue::S(METADATA_ID.to_string()))
+            .consistent_read(true)
+            .send()
+            .await
+            .map_err(|e| explain("GetItem", endpoint, table, e))?;
+        let metadata = found.item().ok_or_else(|| {
             format!(
-                "cannot read {}: {e}. Build it first: cargo run --bin ch5-create-knowledge-base",
-                path.display()
+                "the build of table {table} did not finish. Build it again: {BUILD_KNOWLEDGE_BASE}"
             )
         })?;
-        Ok(serde_json::from_slice(&bytes)?)
+        Ok(Self {
+            model_id: string_attr(metadata, "model_id")?,
+            passages: number_attr(metadata, "passages")?,
+            client,
+            endpoint: endpoint.to_string(),
+            table: table.to_string(),
+        })
     }
 
-    /// The `k` passages closest to `query`, best first. Titan returns unit
-    /// vectors (`normalize: true`), so the dot product is the cosine similarity.
-    fn search(&self, query: &[f32], k: usize) -> Vec<(f32, &Passage)> {
-        let mut scored: Vec<(f32, &Passage)> = self
-            .passages
+    /// The `k` passages closest to `query`, best first, each with its cosine
+    /// similarity (1.0 means the same direction).
+    ///
+    /// # Errors
+    ///
+    /// Fails when ExtendDB is unreachable or refuses the query, for example a
+    /// vector whose length is not the index's dimensions.
+    async fn search(&self, query: &[f32], k: usize) -> KbResult<Vec<(f64, Chunk)>> {
+        let found = self
+            .client
+            .search_vectors()
+            .table_name(&self.table)
+            .index_name(VECTOR_INDEX)
+            .set_search_vector(Some(vector(query)))
+            .top_k(i32::try_from(k)?)
+            .send()
+            .await
+            .map_err(|e| explain("SearchVectors", &self.endpoint, &self.table, e))?;
+        found
+            .search_results()
             .iter()
-            .map(|p| (dot(&p.embedding, query), p))
-            .collect();
-        scored.sort_by(|a, b| b.0.total_cmp(&a.0));
-        scored.truncate(k);
-        scored
+            .map(|hit| {
+                let item = hit
+                    .item()
+                    .ok_or("a search result came back without its passage")?;
+                // A COSINE score is a distance (0 for the same direction).
+                // Turn it back into a similarity, so higher still means closer.
+                Ok((1.0 - hit.score(), chunk_from_item(item)?))
+            })
+            .collect()
     }
 }
 
-fn dot(a: &[f32], b: &[f32]) -> f32 {
-    a.iter().zip(b).map(|(x, y)| x * y).sum()
+/// Name the fix for the two failures a reader meets first: ExtendDB is not
+/// running, or the knowledge base is not built yet.
+fn explain<E>(call: &str, endpoint: &str, table: &str, err: SdkError<E>) -> String
+where
+    E: ProvideErrorMetadata + std::error::Error + 'static,
+{
+    match &err {
+        SdkError::DispatchFailure(_) | SdkError::TimeoutError(_) => format!(
+            "{call} failed: cannot reach ExtendDB at {endpoint} ({}). Start it first: {START_EXTENDDB}",
+            causes(&err)
+        ),
+        SdkError::ServiceError(_) if err.code() == Some("ResourceNotFoundException") => {
+            format!(
+                "{call} failed: there is no table {table} yet. Build it first: {BUILD_KNOWLEDGE_BASE}"
+            )
+        }
+        // ExtendDB refused and said why: its code and message are the cause.
+        SdkError::ServiceError(_) => format!(
+            "{call} failed: {}: {}",
+            err.code().unwrap_or("unknown error"),
+            err.message().unwrap_or("no message")
+        ),
+        _ => format!("{call} failed: {}", DisplayErrorContext(&err)),
+    }
+}
+
+/// Plain Display on a connection failure only says "dispatch failure": the
+/// reason sits at the end of its chain of sources.
+fn causes(err: &dyn std::error::Error) -> String {
+    let mut text = err.to_string();
+    let mut source = err.source();
+    while let Some(cause) = source {
+        text.push_str(": ");
+        text.push_str(&cause.to_string());
+        source = cause.source();
+    }
+    text
+}
+
+/// DynamoDB stores a vector as a list (`L`) of numbers (`N`).
+fn vector(values: &[f32]) -> Vec<AttributeValue> {
+    values
+        .iter()
+        .map(|v| AttributeValue::N(v.to_string()))
+        .collect()
+}
+
+fn chunk_from_item(item: &HashMap<String, AttributeValue>) -> KbResult<Chunk> {
+    Ok(Chunk {
+        id: string_attr(item, "id")?,
+        text: string_attr(item, "text")?,
+        page: number_attr(item, "page")?,
+    })
+}
+
+fn string_attr(item: &HashMap<String, AttributeValue>, name: &str) -> KbResult<String> {
+    let value = item
+        .get(name)
+        .and_then(|v| v.as_s().ok())
+        .ok_or_else(|| format!("item without a text attribute {name}"))?;
+    Ok(value.clone())
+}
+
+fn number_attr(item: &HashMap<String, AttributeValue>, name: &str) -> KbResult<usize> {
+    let value = item
+        .get(name)
+        .and_then(|v| v.as_n().ok())
+        .ok_or_else(|| format!("item without a number attribute {name}"))?;
+    Ok(value.parse()?)
 }
 
 /// Titan Text Embeddings V2 on Bedrock. `Clone` is cheap (the SDK client is
@@ -394,24 +543,25 @@ async fn serve_a2a(executor: StrandsA2AExecutor, addr: SocketAddr) -> std::io::R
 #[cfg(test)]
 mod tests {
     use super::*;
+    use aws_sdk_dynamodb::types::{
+        AttributeDefinition, BillingMode, KeySchemaElement, KeyType, ScalarAttributeType,
+        TableStatus,
+    };
 
-    fn passage(page: usize, text: &str) -> Passage {
-        Passage {
-            chunk: Chunk {
-                id: format!("page_{page}_offset_0"),
-                text: text.to_string(),
-                page,
-            },
-            embedding: Vec::new(),
+    fn chunk(page: usize, text: &str) -> Chunk {
+        Chunk {
+            id: format!("page_{page}_offset_0"),
+            text: text.to_string(),
+            page,
         }
     }
 
     #[test]
     fn passages_are_page_referenced_and_blank_line_separated() {
-        let a = passage(74, "Opportunity attacks.");
-        let b = passage(73, "Movement.");
+        let a = chunk(74, "Opportunity attacks.");
+        let b = chunk(73, "Movement.");
         assert_eq!(
-            format_passages(&[(0.9, &a), (0.5, &b)]),
+            format_passages(&[(0.9, a), (0.5, b)]),
             "[Page 74] Opportunity attacks.\n\n[Page 73] Movement."
         );
     }
@@ -419,11 +569,13 @@ mod tests {
     #[tokio::test]
     async fn a_query_that_is_not_text_is_a_tool_error() {
         let tool = QueryRules {
+            // Never called: the input is refused before any search.
             kb: KnowledgeBase {
-                source: String::new(),
+                client: extenddb_client(DEFAULT_EXTENDDB_ENDPOINT),
+                endpoint: DEFAULT_EXTENDDB_ENDPOINT.to_string(),
+                table: String::new(),
                 model_id: String::new(),
-                dimensions: 0,
-                passages: Vec::new(),
+                passages: 0,
             },
             embedder: Embedder::from_env().await,
         };
@@ -437,55 +589,92 @@ mod tests {
         ));
     }
 
-    fn embedded(id: &str, embedding: Vec<f32>) -> Passage {
-        Passage {
-            chunk: Chunk {
-                id: id.to_string(),
-                text: id.to_string(),
-                page: 1,
-            },
-            embedding,
+    #[tokio::test]
+    async fn an_unreachable_extenddb_names_the_start_command() {
+        // Bind a free port, then let it go: nothing answers there.
+        let port = std::net::TcpListener::bind("127.0.0.1:0")
+            .unwrap()
+            .local_addr()
+            .unwrap()
+            .port();
+        let err = KnowledgeBase::open(&format!("http://127.0.0.1:{port}"), DEFAULT_RULES_TABLE)
+            .await
+            .unwrap_err();
+        assert!(err.to_string().contains(START_EXTENDDB), "{err}");
+    }
+
+    #[tokio::test]
+    #[ignore = "needs ExtendDB running: extenddb serve --foreground, then cargo test -- --ignored"]
+    async fn extenddb_opens_only_a_finished_table() {
+        let endpoint = extenddb_endpoint();
+        let table = format!("test-{}", uuid::Uuid::new_v4());
+        let err = KnowledgeBase::open(&endpoint, &table).await.unwrap_err();
+        assert!(err.to_string().contains(BUILD_KNOWLEDGE_BASE), "{err}");
+
+        // `open` only reads the metadata item, so a table without a vector
+        // index stands in for the builder's.
+        let client = extenddb_client(&endpoint);
+        client
+            .create_table()
+            .table_name(&table)
+            .attribute_definitions(
+                AttributeDefinition::builder()
+                    .attribute_name("id")
+                    .attribute_type(ScalarAttributeType::S)
+                    .build()
+                    .unwrap(),
+            )
+            .key_schema(
+                KeySchemaElement::builder()
+                    .attribute_name("id")
+                    .key_type(KeyType::Hash)
+                    .build()
+                    .unwrap(),
+            )
+            .billing_mode(BillingMode::PayPerRequest)
+            .send()
+            .await
+            .unwrap();
+        // A new table starts CREATING and turns ACTIVE a moment later.
+        for _ in 0..600 {
+            let described = client
+                .describe_table()
+                .table_name(&table)
+                .send()
+                .await
+                .unwrap();
+            if described.table().and_then(|t| t.table_status()) == Some(&TableStatus::Active) {
+                break;
+            }
+            tokio::time::sleep(std::time::Duration::from_millis(100)).await;
         }
-    }
 
-    #[test]
-    fn search_returns_the_closest_first() {
-        let kb = KnowledgeBase {
-            source: String::new(),
-            model_id: DEFAULT_EMBEDDING_MODEL_ID.to_string(),
-            dimensions: 2,
-            passages: vec![
-                embedded("far", vec![0.0, 1.0]),
-                embedded("near", vec![1.0, 0.0]),
-                embedded("middle", vec![0.7, 0.7]),
-            ],
-        };
-        let ids: Vec<&str> = kb
-            .search(&[1.0, 0.0], 2)
-            .iter()
-            .map(|(_, p)| p.chunk.id.as_str())
-            .collect();
-        assert_eq!(ids, ["near", "middle"]);
-    }
+        // No metadata item: the build stopped halfway.
+        let err = KnowledgeBase::open(&endpoint, &table).await.unwrap_err();
+        assert!(err.to_string().contains("did not finish"), "{err}");
 
-    #[test]
-    fn a_written_knowledge_base_loads_back() {
-        let path = std::env::temp_dir().join(format!("kb-{}.json", uuid::Uuid::new_v4()));
-        let kb = KnowledgeBase {
-            source: String::new(),
-            model_id: DEFAULT_EMBEDDING_MODEL_ID.to_string(),
-            dimensions: 1,
-            passages: vec![embedded("only", vec![1.0])],
-        };
-        std::fs::write(&path, serde_json::to_vec(&kb).unwrap()).unwrap();
-        assert_eq!(KnowledgeBase::load(&path).unwrap(), kb);
-        std::fs::remove_file(&path).unwrap();
-    }
+        client
+            .put_item()
+            .table_name(&table)
+            .item("id", AttributeValue::S(METADATA_ID.to_string()))
+            .item(
+                "model_id",
+                AttributeValue::S(DEFAULT_EMBEDDING_MODEL_ID.to_string()),
+            )
+            .item("passages", AttributeValue::N("3".to_string()))
+            .send()
+            .await
+            .unwrap();
+        let kb = KnowledgeBase::open(&endpoint, &table).await.unwrap();
+        assert_eq!(kb.model_id, DEFAULT_EMBEDDING_MODEL_ID);
+        assert_eq!(kb.passages, 3);
 
-    #[test]
-    fn a_missing_file_names_the_build_command() {
-        let err = KnowledgeBase::load(Path::new("/nonexistent/kb.json")).unwrap_err();
-        assert!(err.to_string().contains("ch5-create-knowledge-base"));
+        client
+            .delete_table()
+            .table_name(&table)
+            .send()
+            .await
+            .unwrap();
     }
 
     #[test]

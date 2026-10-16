@@ -65,14 +65,29 @@ loopback `Host` headers. To serve it beyond your machine, set `MCP_BIND` and nam
 proxy in front before exposing it.
 
 Chapter 5 needs the Basic Rules PDF, which is licensed for personal use only and so is not in this
-repo. Put your copy at `5_a2a_integration/utils/DnD_BasicRules_2018.pdf`, then build the knowledge
-base once (about 35 seconds of Titan embedding calls):
+repo. Put your copy at `5_a2a_integration/utils/DnD_BasicRules_2018.pdf`.
+
+The Rules Agent searches its passages in [ExtendDB](https://github.com/ExtendDB/extenddb), an
+open-source, DynamoDB-compatible database written in Rust, through a vector index. Install its
+developer-mode build once (about a minute), then start it from the repo root in a terminal of its own
+and leave it running:
+
+```sh
+cargo install --git https://github.com/ExtendDB/extenddb --tag v0.1.13 --locked \
+  --no-default-features --features sqlite,dev-mode extenddb
+extenddb serve --foreground   # 127.0.0.1:18443, data in ./extenddb.sqlite
+```
+
+Developer mode serves plain HTTP on loopback only and accepts AWS's documented example key pair, which
+the workshop signs with: keep it on your machine and keep real data out of it.
+
+Then build the knowledge base once (about 35 seconds of Titan embedding calls):
 
 ```sh
 cargo run --release --bin ch5-create-knowledge-base
 ```
 
-Then start four servers, each in its own terminal, and ask the Game Master:
+Then start four more servers, each in its own terminal, and ask the Game Master:
 
 ```sh
 cargo run --bin ch4-dice-mcp-server          # dice over MCP, port 8002
