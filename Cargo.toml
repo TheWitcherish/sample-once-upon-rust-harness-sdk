@@ -29,6 +29,11 @@ aws-sdk-bedrockruntime = { version = "1.148.0", default-features = false, featur
     "default-https-client",
     "rt-tokio",
 ] }
+# Chapter 5's knowledge base lives in ExtendDB, which answers the DynamoDB API.
+aws-sdk-dynamodb = { version = "=1.130.0", default-features = false, features = [
+    "default-https-client",
+    "rt-tokio",
+] }
 axum = "0.8.9"
 chrono = "0.4.45"
 pdf-extract = "0.12.1"

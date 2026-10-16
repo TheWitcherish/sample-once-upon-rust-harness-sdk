@@ -24,10 +24,10 @@ secrets.*
 
 # ─── Chapter 5 knowledge base ───────────────────────────────────────────────
 # The Basic Rules PDF is licensed for personal use only, so each reader fetches
-# their own copy; the embeddings built from it are regenerated locally.
+# their own copy; the embeddings built from it are regenerated locally, into
+# ExtendDB's database (`extenddb serve --foreground`, run from the repo root).
 /5_a2a_integration/utils/*.pdf
-/5_a2a_integration/utils/rules_knowledge_base.json
-/5_a2a_integration/utils/*.json.tmp
+/extenddb.sqlite*
 
 # ─── OS cruft ───────────────────────────────────────────────────────────────
 .DS_Store
