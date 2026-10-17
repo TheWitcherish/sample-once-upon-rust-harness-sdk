@@ -25,6 +25,7 @@
 //! Browsers may call the API from `http://localhost:<port>` and
 //! `http://127.0.0.1:<port>` origins only (the Chapter 6 UI's dev server).
 
+use std::net::SocketAddr;
 use std::path::PathBuf;
 use std::sync::Arc;
 
@@ -33,12 +34,12 @@ use axum::http::{HeaderValue, Method, StatusCode, header};
 use axum::response::{IntoResponse, Response};
 use axum::routing::{get, post};
 use axum::{Json, Router};
-use once_upon_agentic_ai::{bind_addr, game_master_model};
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
 use strands_agents::a2a::{A2AClientOptions, make_a2a_client};
 use strands_agents::agent::STRUCTURED_OUTPUT_PROMPT;
+use strands_agents::models::{BedrockModel, ModelConfig};
 use strands_agents::tools::mcp::{MCPClient, StreamableHttpTransport};
 use strands_agents::types::content::ContentBlock;
 use strands_agents::types::message::Message;
@@ -270,6 +271,47 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     Ok(())
 }
 
+/// Default Bedrock model for the whole adventure.
+///
+/// Verified live against the configured Bedrock account (us-east-1, 2026-10-05
+/// via `aws bedrock list-inference-profiles`): `ACTIVE`, and the same model the
+/// Python workshop teaches against. Override it with `MODEL_ID` for a cheaper
+/// run, e.g. `export MODEL_ID=us.anthropic.claude-haiku-4-5-20251001-v1:0`.
+const DEFAULT_MODEL_ID: &str = "us.anthropic.claude-sonnet-4-6";
+
+/// Resolve the model id from `MODEL_ID`, falling back to the verified default.
+fn model_id() -> String {
+    std::env::var("MODEL_ID").unwrap_or_else(|_| DEFAULT_MODEL_ID.to_string())
+}
+
+/// Build the storyteller model on Amazon Bedrock.
+///
+/// Honours `MODEL_ID` and the standard AWS environment (`AWS_REGION`,
+/// `AWS_PROFILE`, ...). A high temperature is the right default for a
+/// storyteller; a low one would make it repeat itself.
+async fn game_master_model() -> strands_agents::Result<BedrockModel> {
+    let config = ModelConfig::new(model_id()).with_temperature(0.9);
+    BedrockModel::with_config(config).await
+}
+
+/// Resolve where this server listens: `env_var` if set, else loopback on
+/// `default_port`. Loopback by default because these servers have no
+/// authentication, the same as the Python chapter.
+///
+/// # Errors
+///
+/// Returns the parse error when `env_var` holds something that is not
+/// `host:port`.
+fn bind_addr(
+    env_var: &str,
+    default_port: u16,
+) -> std::result::Result<SocketAddr, std::net::AddrParseError> {
+    match std::env::var(env_var) {
+        Ok(addr) => addr.parse(),
+        Err(_) => Ok(SocketAddr::from(([127, 0, 0, 1], default_port))),
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -357,5 +399,18 @@ mod tests {
         assert!(!ok("http://localhost:5173.evil.example"));
         assert!(!ok("https://evil.example"));
         assert!(!ok("http://localhost.evil.example:80"));
+    }
+
+    #[test]
+    fn bind_addr_defaults_to_loopback() {
+        let addr = bind_addr("ONCE_UPON_TEST_UNSET_BIND", 8000);
+        assert_eq!(addr, Ok(SocketAddr::from(([127, 0, 0, 1], 8000))));
+    }
+
+    #[test]
+    fn bind_addr_rejects_garbage() {
+        // SAFETY: this test is the only reader and writer of this variable.
+        unsafe { std::env::set_var("ONCE_UPON_TEST_BAD_BIND", "not-an-address") };
+        assert!(bind_addr("ONCE_UPON_TEST_BAD_BIND", 8000).is_err());
     }
 }

@@ -15,8 +15,8 @@
 use std::sync::Arc;
 
 use async_trait::async_trait;
-use once_upon_agentic_ai::game_master_model;
 use serde_json::{Value, json};
+use strands_agents::models::{BedrockModel, ModelConfig};
 use strands_agents::tools::ToolResult;
 use strands_agents::{AgentBuilder, Result, Tool, ToolContext, ToolSpec};
 
@@ -144,6 +144,29 @@ async fn main() -> Result<()> {
     );
 
     Ok(())
+}
+
+/// Default Bedrock model for the whole adventure.
+///
+/// Verified live against the configured Bedrock account (us-east-1, 2026-10-05
+/// via `aws bedrock list-inference-profiles`): `ACTIVE`, and the same model the
+/// Python workshop teaches against. Override it with `MODEL_ID` for a cheaper
+/// run, e.g. `export MODEL_ID=us.anthropic.claude-haiku-4-5-20251001-v1:0`.
+const DEFAULT_MODEL_ID: &str = "us.anthropic.claude-sonnet-4-6";
+
+/// Resolve the model id from `MODEL_ID`, falling back to the verified default.
+fn model_id() -> String {
+    std::env::var("MODEL_ID").unwrap_or_else(|_| DEFAULT_MODEL_ID.to_string())
+}
+
+/// Build the storyteller model on Amazon Bedrock.
+///
+/// Honours `MODEL_ID` and the standard AWS environment (`AWS_REGION`,
+/// `AWS_PROFILE`, ...). A high temperature is the right default for a
+/// storyteller; a low one would make it repeat itself.
+async fn game_master_model() -> strands_agents::Result<BedrockModel> {
+    let config = ModelConfig::new(model_id()).with_temperature(0.9);
+    BedrockModel::with_config(config).await
 }
 
 #[cfg(test)]
