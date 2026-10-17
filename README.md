@@ -15,7 +15,8 @@ a tool it *did*, then the same tool over a wire, then a whole party of agents ta
 Same philosophy and patterns as the Python workshop; the typed boundaries and the function names line
 up so you can read the two side by side. Where Rust asks something different of you - naming the model
 provider explicitly, an `AgentResult` instead of a print - the code says so in a comment, right where
-it happens.
+it happens. Like the Python workshop, each chapter folder holds all of the code it runs: the helpers a
+file needs, such as the model setup, sit at the bottom of that file.
 
 ## Quick start (30-Second Kickoff)
 
