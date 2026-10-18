@@ -37,7 +37,7 @@ warns about unused imports and items: each warning points at a step you have not
 The agents run on **Amazon Bedrock** (Claude Sonnet 5.5 by default). Pick a cheaper model any time:
 
 ```sh
-export MODEL_ID=YOUR_MODEL   # e.g. us.anthropic.claude-haiku-4-5-20251001-v1:0
+export MODEL_ID=YOUR_MODEL   # e.g. us.anthropic.claude-haiku-5-5
 ```
 
 Model ids are read from `MODEL_ID` with a verified fallback; the region comes from the standard AWS
