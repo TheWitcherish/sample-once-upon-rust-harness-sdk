@@ -9,7 +9,7 @@
 //!   cargo run --bin ch1-summoning
 //!
 //! Environment overrides:
-//!   MODEL_ID     a Bedrock inference-profile id (default: Claude Sonnet 4.6)
+//!   MODEL_ID     a Bedrock inference-profile id (default: Claude Sonnet 5.5)
 //!   AWS_REGION   the region your model lives in, e.g. us-east-1
 //!   RUST_LOG     set to strands_agents=debug for the agent's inner monologue
 
@@ -79,11 +79,11 @@ async fn main() -> Result<()> {
 
 /// Default Bedrock model for the whole adventure.
 ///
-/// Verified live against the configured Bedrock account (us-east-1, 2026-10-05
-/// via `aws bedrock list-inference-profiles`): `ACTIVE`, and the same model the
-/// Python workshop teaches against. Override it with `MODEL_ID` for a cheaper
-/// run, e.g. `export MODEL_ID=us.anthropic.claude-haiku-4-5-20251001-v1:0`.
-const DEFAULT_MODEL_ID: &str = "us.anthropic.claude-sonnet-4-6";
+/// Verified live against the configured Bedrock account (us-east-1, 2026-10-18
+/// via `aws bedrock list-inference-profiles`): `ACTIVE`. Override it with
+/// `MODEL_ID` for a cheaper run, e.g.
+/// `export MODEL_ID=us.anthropic.claude-haiku-4-5-20251001-v1:0`.
+const DEFAULT_MODEL_ID: &str = "us.anthropic.claude-sonnet-5-5";
 
 /// The system prompt shared by the whole adventure.
 const GAME_MASTER_PROMPT: &str = "You are a Game Master for a Table-Top Role-Playing Game (TTRPG)";
@@ -96,9 +96,9 @@ fn model_id() -> String {
 /// Build the storyteller model on Amazon Bedrock.
 ///
 /// Honours `MODEL_ID` and the standard AWS environment (`AWS_REGION`,
-/// `AWS_PROFILE`, ...). A high temperature is the right default for a
-/// storyteller; a low one would make it repeat itself.
+/// `AWS_PROFILE`, ...). It sets no temperature: Claude Sonnet 5.5 refuses the
+/// parameter ("`temperature` is deprecated for this model").
 async fn game_master_model() -> strands_agents::Result<BedrockModel> {
-    let config = ModelConfig::new(model_id()).with_temperature(0.9);
+    let config = ModelConfig::new(model_id());
     BedrockModel::with_config(config).await
 }
