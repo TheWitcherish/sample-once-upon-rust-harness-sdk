@@ -34,7 +34,7 @@ Chapter 1 is done. On `main` each chapter is a skeleton: fill in its `// TODO` s
 it from the `solution` branch to see the finished version. While a skeleton is unfinished, `cargo`
 warns about unused imports and items: each warning points at a step you have not wired in yet.
 
-The agents run on **Amazon Bedrock** (Claude Sonnet 4.6 by default). Pick a cheaper model any time:
+The agents run on **Amazon Bedrock** (Claude Sonnet 5.5 by default). Pick a cheaper model any time:
 
 ```sh
 export MODEL_ID=YOUR_MODEL   # e.g. us.anthropic.claude-haiku-4-5-20251001-v1:0
