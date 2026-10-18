@@ -37,7 +37,7 @@ async fn main() -> Result<()> {
 /// Verified live against the configured Bedrock account (us-east-1, 2026-10-18
 /// via `aws bedrock list-inference-profiles`): `ACTIVE`. Override it with
 /// `MODEL_ID` for a cheaper run, e.g.
-/// `export MODEL_ID=us.anthropic.claude-haiku-4-5-20251001-v1:0`.
+/// `export MODEL_ID=us.anthropic.claude-haiku-5-5`.
 const DEFAULT_MODEL_ID: &str = "us.anthropic.claude-sonnet-5-5";
 
 /// The system prompt shared by the whole adventure.
