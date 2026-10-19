@@ -1,9 +1,5 @@
 //! Chapter 5 - Build the Rules Agent knowledge base
 //!
-//! A side-by-side port of the Python workshop's
-//! `5_a2a_integration/utils/create_knowledge_base.py`:
-//!   <https://github.com/aws-samples/sample-once-upon-agentic-ai/tree/main/5_a2a_integration>
-//!
 //! Reads `DnD_BasicRules_2018.pdf` page by page, cuts each page into
 //! overlapping ~1000-character passages, embeds every passage with Titan Text
 //! Embeddings V2 on Bedrock, and writes `rules_knowledge_base.json` next to the
@@ -105,9 +101,9 @@ async fn main() -> KbResult<()> {
     Ok(())
 }
 
-// The knowledge base on disk, the Rust side of the Python chapter's ChromaDB
-// collection. This builder writes it and the Rules Agent reads it, so both files
-// carry the same types and the same `Embedder`: keep the two copies identical.
+// The knowledge base on disk. This builder writes it and the Rules Agent reads
+// it, so both files carry the same types and the same `Embedder`: keep the two
+// copies identical.
 type KbResult<T> = std::result::Result<T, Box<dyn std::error::Error + Send + Sync>>;
 
 /// Verified live (us-west-2, 2026-10-19, `aws bedrock get-foundation-model`):
@@ -166,9 +162,8 @@ fn squash_whitespace(text: &str) -> String {
     text.split_whitespace().collect::<Vec<_>>().join(" ")
 }
 
-/// Cut each page into overlapping passages: the same algorithm as the Python
-/// `extract_chunks`, counted in characters (not bytes) so the cuts land in the
-/// same places and never split a multi-byte character.
+/// Cut each page into overlapping passages, counted in characters (not bytes)
+/// so a cut never splits a multi-byte character.
 fn extract_chunks(pages: &[String]) -> Vec<Chunk> {
     let footer = squash_whitespace(FOOTER);
     let mut chunks = Vec::new();

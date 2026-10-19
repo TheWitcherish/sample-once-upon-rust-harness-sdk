@@ -1,9 +1,5 @@
 //! Chapter 5 - The Rules Agent (A2A server on port 8000)
 //!
-//! A side-by-side port of the Python workshop's
-//! `5_a2a_integration/agents/rules_agent/rules_agent.py`:
-//!   <https://github.com/aws-samples/sample-once-upon-agentic-ai/tree/main/5_a2a_integration>
-//!
 //! One tool, `query_rules`: a semantic search over the Basic Rules PDF that
 //! returns the three closest passages with their page numbers. Served over A2A
 //! so the Game Master can ask this agent instead of guessing the rules.
@@ -42,7 +38,7 @@ const SYSTEM_PROMPT: &str = "You are a 5e rules expert. For each rules question,
 const DEFAULT_PORT: u16 = 8000;
 const TOP_K: usize = 3;
 
-/// The same layout as the Python tool: `[Page N] passage`, blank-line separated.
+/// Each passage as `[Page N] passage`, blank-line separated.
 fn format_passages(hits: &[(f32, &Passage)]) -> String {
     hits.iter()
         .map(|(_, p)| format!("[Page {}] {}", p.chunk.page, p.chunk.text))
@@ -121,8 +117,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         )
         .init();
 
-    // Python opens ChromaDB on the first query; loading at startup fails
-    // before the server is advertised, not in the middle of a game.
+    // Loading at startup fails before the server is advertised, not in the
+    // middle of a game.
     let kb = KnowledgeBase::load(&kb_path()).map_err(|e| e.to_string())?;
     let embedder = Embedder::from_env().await;
     // Vectors from two embedding models live in different spaces: comparing
@@ -152,9 +148,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     Ok(())
 }
 
-// The knowledge base on disk, the Rust side of the Python chapter's ChromaDB
-// collection. The builder writes it and this agent reads it, so both files
-// carry the same types and the same `Embedder`: keep the two copies identical.
+// The knowledge base on disk. The builder writes it and this agent reads it,
+// so both files carry the same types and the same `Embedder`: keep the two
+// copies identical.
 type KbResult<T> = std::result::Result<T, Box<dyn std::error::Error + Send + Sync>>;
 
 /// Verified live (us-west-2, 2026-10-19, `aws bedrock get-foundation-model`):
@@ -310,7 +306,7 @@ async fn game_master_model() -> strands_agents::Result<BedrockModel> {
 
 /// Resolve where this server listens: `env_var` if set, else loopback on
 /// `default_port`. Loopback by default because these servers have no
-/// authentication, the same as the Python chapter.
+/// authentication.
 ///
 /// # Errors
 ///
@@ -347,13 +343,12 @@ async fn rpc(State(app): State<A2AState>, Json(body): Json<Value>) -> Json<Value
     }))
 }
 
-/// Serve an agent over A2A until Ctrl-C: the Rust side of Python's
-/// `A2AServer(agent=..., port=...).serve()`.
+/// Serve an agent over A2A until Ctrl-C.
 ///
 /// Routes:
 /// - `GET /.well-known/agent-card.json`: how other agents discover this one.
-/// - `POST /`: JSON-RPC 2.0 (`message/send`, `tasks/get`, ...). Root, like the
-///   Python server, because that is where `A2AAgent` and `make_a2a_client` post.
+/// - `POST /`: JSON-RPC 2.0 (`message/send`, `tasks/get`, ...). Root, because
+///   that is where `A2AAgent` and `make_a2a_client` post.
 ///
 /// # Errors
 ///

@@ -1,9 +1,5 @@
 //! Chapter 5 - The Character Agent (A2A server on port 8001)
 //!
-//! A side-by-side port of the Python workshop's
-//! `5_a2a_integration/agents/character_agent/character_agent.py`:
-//!   <https://github.com/aws-samples/sample-once-upon-agentic-ai/tree/main/5_a2a_integration>
-//!
 //! Three tools over a JSON file, served over A2A so the Game Master can ask
 //! this agent for character sheets instead of keeping them itself.
 //!
@@ -44,8 +40,7 @@ fn ten() -> i64 {
     10
 }
 
-/// Any score the model leaves out defaults to 10, like the Python
-/// `stats_dict.get('strength', 10)`.
+/// Any score the model leaves out defaults to 10.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct Stats {
     #[serde(default = "ten")]
@@ -106,15 +101,15 @@ struct CreateParams {
     stats_dict: Stats,
 }
 
-/// The same file layout as TinyDB (`{"_default": {"1": {...}}}`), so the
-/// Python chapter's `characters.json` loads as-is and both versions can share it.
+/// The file layout: `{"_default": {"1": {...}, "2": {...}}}`, one entry per
+/// character under a numeric id.
 #[derive(Debug, Default, Serialize, Deserialize)]
 struct DbFile {
     #[serde(rename = "_default", default)]
     table: Map<String, Value>,
 }
 
-/// Characters in insertion order (TinyDB's numeric document ids). Sorting the
+/// Characters in insertion order (their numeric ids). Sorting the
 /// keys as text would put "10" before "2".
 fn rows(db: &DbFile) -> Result<Vec<(u64, Character)>, String> {
     let mut rows = Vec::new();
@@ -151,7 +146,7 @@ impl CharacterDb {
         match tokio::fs::read(&self.path).await {
             Ok(bytes) => serde_json::from_slice(&bytes)
                 .map_err(|e| format!("{} is not a valid database: {e}", self.path.display())),
-            // A missing file is an empty database, as with TinyDB.
+            // A missing file is an empty database.
             Err(e) if e.kind() == std::io::ErrorKind::NotFound => Ok(DbFile::default()),
             Err(e) => Err(format!("cannot read {}: {e}", self.path.display())),
         }
@@ -165,7 +160,7 @@ impl CharacterDb {
             .collect())
     }
 
-    /// Exact, case-sensitive match, like the Python `Query().name == name`.
+    /// Exact, case-sensitive match.
     pub async fn find_by_name(&self, name: &str) -> Result<Option<Character>, String> {
         Ok(self.all().await?.into_iter().find(|c| c.name == name))
     }
@@ -431,7 +426,7 @@ async fn game_master_model() -> strands_agents::Result<BedrockModel> {
 
 /// Resolve where this server listens: `env_var` if set, else loopback on
 /// `default_port`. Loopback by default because these servers have no
-/// authentication, the same as the Python chapter.
+/// authentication.
 ///
 /// # Errors
 ///
@@ -468,13 +463,12 @@ async fn rpc(State(app): State<A2AState>, Json(body): Json<Value>) -> Json<Value
     }))
 }
 
-/// Serve an agent over A2A until Ctrl-C: the Rust side of Python's
-/// `A2AServer(agent=..., port=...).serve()`.
+/// Serve an agent over A2A until Ctrl-C.
 ///
 /// Routes:
 /// - `GET /.well-known/agent-card.json`: how other agents discover this one.
-/// - `POST /`: JSON-RPC 2.0 (`message/send`, `tasks/get`, ...). Root, like the
-///   Python server, because that is where `A2AAgent` and `make_a2a_client` post.
+/// - `POST /`: JSON-RPC 2.0 (`message/send`, `tasks/get`, ...). Root, because
+///   that is where `A2AAgent` and `make_a2a_client` post.
 ///
 /// # Errors
 ///
@@ -515,7 +509,7 @@ mod tests {
         "/5_a2a_integration/agents/character_agent/characters.json"
     );
 
-    /// A database in a fresh temp file, optionally seeded with the Python party.
+    /// A database in a fresh temp file, optionally seeded with the starting party.
     async fn temp_db(seed: bool) -> (Arc<CharacterDb>, PathBuf) {
         let path = std::env::temp_dir().join(format!("characters-{}.json", uuid::Uuid::new_v4()));
         if seed {
@@ -531,7 +525,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn the_python_party_loads_in_order() {
+    async fn the_starting_party_loads_in_order() {
         let db = CharacterDb::new(SEED);
         let names: Vec<String> = db
             .all()
@@ -584,7 +578,7 @@ mod tests {
         assert_eq!(alice.stats.strength, 10);
         assert_eq!(alice.level, 1);
 
-        // Appended after the 4 seed characters, under TinyDB id "5".
+        // Appended after the 4 seed characters, under id "5".
         let raw: DbFile = serde_json::from_slice(&tokio::fs::read(&path).await.unwrap()).unwrap();
         assert!(raw.table.contains_key("5"));
         tokio::fs::remove_file(&path).await.unwrap();

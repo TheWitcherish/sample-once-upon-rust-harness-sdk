@@ -1,14 +1,9 @@
 //! Chapter 5 - The Game Master orchestrator (HTTP API on port 8009)
 //!
-//! A side-by-side port of the Python workshop's
-//! `5_a2a_integration/agents/gamemaster_orchestrator/gamemaster_orchestrator.py`:
-//!   <https://github.com/aws-samples/sample-once-upon-agentic-ai/tree/main/5_a2a_integration>
-//!
 //! The Game Master keeps no rules and no character sheets of its own. It rolls
 //! dice over MCP (the Chapter 4 server), and asks the Rules Agent and the
 //! Character Agent over A2A, discovering them at runtime with `make_a2a_client`.
-//! Every answer comes back as a typed `StoryOutput`, forced the way Python's
-//! `structured_output_model` forces it.
+//! Every answer comes back as a typed `StoryOutput`.
 //!
 //! Start the three servers first, each in its own terminal:
 //!   cargo run --bin ch4-dice-mcp-server
@@ -52,7 +47,7 @@ const RULES_AGENT_URL: &str = "http://127.0.0.1:8000";
 const CHARACTER_AGENT_URL: &str = "http://127.0.0.1:8001";
 const DEFAULT_PORT: u16 = 8009;
 
-/// The Python chapter's prompt, with TTRPG for the brand name.
+/// The Game Master's system prompt.
 const SYSTEM_PROMPT: &str = "You are a TTRPG Game Master. Discover the agents you can reach and ask them instead of guessing: rules questions, character creation and lookups are their job. Every dice roll goes through roll_dice. Never make up what a tool can tell you, and narrate with flair.";
 
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
@@ -86,8 +81,7 @@ struct QuestionRequest {
 
 #[derive(Clone)]
 struct AppState {
-    // One agent, one conversation: requests take turns, like the Python
-    // module-level `agent`.
+    // One agent, one conversation: requests take turns.
     agent: Arc<Mutex<Agent>>,
     characters_db: PathBuf,
 }
@@ -100,10 +94,9 @@ async fn health() -> Json<Value> {
     Json(json!({ "status": "healthy" }))
 }
 
-/// One message in the Converse API shape Python's `agent.messages` returns,
-/// which the Chapter 6 UI parses: tool blocks are wrapped as
-/// `{"toolUse": {...}}` and `{"toolResult": {...}}`. The Rust SDK serializes
-/// them unwrapped, so the wrapper is added here.
+/// One message in the Converse API shape the Chapter 6 UI parses: tool blocks
+/// are wrapped as `{"toolUse": {...}}` and `{"toolResult": {...}}`. The Rust
+/// SDK serializes them unwrapped, so the wrapper is added here.
 fn wire_message(message: &Message) -> Value {
     let content: Vec<Value> = message
         .content
@@ -136,7 +129,7 @@ async fn messages(State(app): State<AppState>) -> Json<Value> {
     ))
 }
 
-/// Find a character in the Character Agent's TinyDB file, by exact name.
+/// Find a character in the Character Agent's file, by exact name.
 fn find_character(db: &Value, name: &str) -> Option<Value> {
     db.get("_default")?
         .as_object()?
@@ -145,7 +138,7 @@ fn find_character(db: &Value, name: &str) -> Option<Value> {
         .cloned()
 }
 
-/// Reads the Character Agent's file directly, like the Python endpoint.
+/// Reads the Character Agent's file directly.
 async fn user(State(app): State<AppState>, Path(user_name): Path<String>) -> Response {
     let db = match tokio::fs::read(&app.characters_db).await {
         Ok(bytes) => match serde_json::from_slice::<Value>(&bytes) {
@@ -198,9 +191,8 @@ fn is_local_origin(origin: &HeaderValue) -> bool {
         })
 }
 
-/// Python allows every origin (`*`) with credentials. The UI needs neither:
-/// it runs on a local dev server and sends no cookies, so only local origins
-/// get in.
+/// The UI runs on a local dev server and sends no cookies, so only local
+/// origins get in, without credentials.
 fn cors() -> CorsLayer {
     CorsLayer::new()
         .allow_origin(AllowOrigin::predicate(|origin, _| is_local_origin(origin)))
@@ -287,7 +279,7 @@ async fn game_master_model() -> strands_agents::Result<BedrockModel> {
 
 /// Resolve where this server listens: `env_var` if set, else loopback on
 /// `default_port`. Loopback by default because these servers have no
-/// authentication, the same as the Python chapter.
+/// authentication.
 ///
 /// # Errors
 ///
@@ -313,7 +305,7 @@ mod tests {
     );
 
     #[test]
-    fn user_lookup_reads_the_tinydb_file_by_exact_name() {
+    fn user_lookup_reads_the_characters_file_by_exact_name() {
         let db: Value = serde_json::from_slice(&std::fs::read(SEED).unwrap()).unwrap();
         let arnaud = find_character(&db, "Arnaud").unwrap();
         assert_eq!(arnaud["stats"]["constitution"], 14);
@@ -348,7 +340,7 @@ mod tests {
     }
 
     #[test]
-    fn messages_use_the_python_wire_shape_the_ui_parses() {
+    fn messages_use_the_wire_shape_the_ui_parses() {
         use strands_agents::types::content::ToolUseContent;
         let message = Message::assistant_with_content(vec![
             ContentBlock::text("Rolling."),

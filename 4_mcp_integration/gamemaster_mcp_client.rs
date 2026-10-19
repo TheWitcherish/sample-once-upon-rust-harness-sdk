@@ -1,15 +1,12 @@
 //! Chapter 4 - Planar Portals: Lady Luck rolls through MCP
 //!
-//! A side-by-side port of the Python workshop's `4_mcp_integration/gamemaster_mcp_client.py`:
-//!   <https://github.com/aws-samples/sample-once-upon-agentic-ai/tree/main/4_mcp_integration>
-//!
 //! Lady Luck has no dice of her own any more. She connects to the dice roller
 //! MCP server over streamable HTTP, discovers `roll_dice` at runtime, and calls
 //! it across the wire. Same SDK, same agent; the tool just lives somewhere else.
 //!
-//! The Python chapter sends one fixed request. Here you type your own, as many
-//! as you like: "roll 3d20", "roll a d100 for loot", or the Python chapter's
-//! character-creation request. Watch the server terminal light up per die.
+//! You type your own requests, as many as you like: "roll 3d20", "roll a d100
+//! for loot", or the character-creation example it prints. Watch the server
+//! terminal light up per die.
 //!
 //! Start the server first, in another terminal:
 //!   cargo run --bin ch4-dice-mcp-server
@@ -29,13 +26,13 @@ use strands_agents::{AgentBuilder, Result};
 
 const DEFAULT_MCP_URL: &str = "http://localhost:8002/mcp";
 
-/// The Python chapter's prompt, line for line, with TTRPG for the brand name.
+/// Lady Luck's system prompt.
 const LADY_LUCK_PROMPT: &str = "You are Lady Luck, the mystical keeper of dice and fortune in TTRPG adventures.
     You speak with theatrical flair and always announce dice rolls with appropriate drama.
     You know all about TTRPG mechanics, always use the appropriate tools when applicable - never make up results!";
 
-/// The Python chapter's query, with TTRPG for the brand name. Offered as an example.
-const PYTHON_QUERY: &str = "Help me create a new TTRPG character! Roll the strength, wisdom, charisma and intelligence abilities scores using 4d6 drop lowest method.";
+/// A longer request, offered as an example.
+const EXAMPLE_QUERY: &str = "Help me create a new TTRPG character! Roll the strength, wisdom, charisma and intelligence abilities scores using 4d6 drop lowest method.";
 
 /// Read the adventurer's next request. `None` means leave: end of input, an
 /// empty line, or `quit` / `exit`.
@@ -77,7 +74,7 @@ async fn main() -> Result<()> {
     println!("Lady Luck is listening, her dice on the server at {url}.");
     println!("Ask for any roll, for example:");
     println!("  roll 3d20");
-    println!("  {PYTHON_QUERY}");
+    println!("  {EXAMPLE_QUERY}");
     println!("Press Enter on an empty line, or type quit, to leave.");
 
     let mut stdin = io::stdin().lock();

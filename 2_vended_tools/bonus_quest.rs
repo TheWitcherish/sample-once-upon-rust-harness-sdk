@@ -1,15 +1,11 @@
 //! Chapter 2 - Bonus Quest: Kiro the Grey Hat
 //!
-//! A side-by-side port of the Python workshop's `2_vended_tools/bonus_quest.py`:
-//!   <https://github.com/aws-samples/sample-once-upon-agentic-ai/tree/main/2_vended_tools>
+//! Kiro gets two powerful vended tools: `shell` and `editor`. Tools that write
+//! files and run commands should not fire unsupervised, so every call pauses for
+//! your approval first.
 //!
-//! Kiro gets two powerful vended tools: `shell` (Python: `shell`) and `editor`
-//! (Python: `file_editor`). Tools that write files and run commands should not
-//! fire unsupervised, so every call pauses for your approval first.
-//!
-//! Python reaches for the vended `HumanInTheLoop` intervention in stdio mode. The
-//! Rust SDK has no vended interventions yet, so we build the same gate from what
-//! it does ship: a hook that raises an interrupt before each tool call, and a loop
+//! The Rust SDK has no vended approval step yet, so we build one from what it
+//! does ship: a hook that raises an interrupt before each tool call, and a loop
 //! that asks you on stdin and resumes the agent with your answer.
 //!
 //! Run with:
@@ -29,14 +25,14 @@ use strands_agents::types::content::ContentBlock;
 use strands_agents::{AgentBuilder, Result};
 // TODO: Step 1 - Import Shell and Editor from strands_agents_tools
 
-/// The Python chapter's exact query.
+/// Kiro's quest.
 const QUERY: &str = "Create a magical scroll that generates the first 10 numbers of the Fibonacci sequence and demonstrate its power!";
 
 /// What Kiro hears when you refuse a spell. It becomes the tool result, so the
 /// model knows the call never ran.
 const DENIED: &str = "The adventurer refused to let this spell be cast.";
 
-/// The Python chapter's system prompt, line for line.
+/// Kiro's system prompt.
 fn system_prompt(cwd: &str) -> String {
     format!(
         "You are Kiro the Grey Hat, a wizard who specializes in the ancient art of code magic.

@@ -1,9 +1,6 @@
 //! Chapter 1 - The Art of Agent Summoning
 //!
-//! A side-by-side port of the Python workshop's `1_strands_basics/simple_agent.py`:
-//!   <https://github.com/aws-samples/sample-once-upon-agentic-ai/tree/main/1_strands_basics>
-//!
-//! Three TODOs, the same three steps as the Python chapter.
+//! Three TODOs: turn on logging, build the agent, then talk to it.
 //!
 //! Run with:
 //!   cargo run --bin ch1-summoning
@@ -16,7 +13,7 @@
 use strands_agents::models::{BedrockModel, ModelConfig};
 use strands_agents::{AgentBuilder, Result};
 
-/// The Python chapter's exact first query.
+/// The adventurer's first line.
 const FIRST_QUERY: &str = "Hi, I am an adventurer ready for adventure!";
 
 #[tokio::main]
