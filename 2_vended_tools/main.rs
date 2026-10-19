@@ -1,12 +1,8 @@
 //! Chapter 2 - The Adventurer's Arsenal: Vended Tools
 //!
-//! A side-by-side port of the Python workshop's `2_vended_tools/agent_with_vended_tools.py`:
-//!   <https://github.com/aws-samples/sample-once-upon-agentic-ai/tree/main/2_vended_tools>
-//!
 //! The game master gains a tool it did not have to write: `http_fetch`, shipped
-//! by the `strands-agents-tools` crate (Python: `http_request` from
-//! `strands.vended_tools`). It looks up real spell and monster data on the live
-//! Open5e API instead of inventing it.
+//! by the `strands-agents-tools` crate. It looks up real spell and monster data
+//! on the live Open5e API instead of inventing it.
 //!
 //! Run with:
 //!   cargo run --bin ch2-vended-tools
@@ -20,14 +16,14 @@ use strands_agents::{AgentBuilder, Result};
 // TODO: Step 1 - Import HttpFetch from strands_agents_tools
 use strands_agents_tools::HttpFetch;
 
-/// Where the rules live. Same lookup as the Python prompt, on the Open5e API.
+/// Where the rules live: the Open5e API.
 const RULES_LOOKUP: &str =
     "When asked about a spell or a monster, look it up on the Open5e API and answer from the data:
     - spells:   https://api.open5e.com/v1/spells/<slug>/
     - monsters: https://api.open5e.com/v1/monsters/<slug>/
     where <slug> is the lowercase name with hyphens (e.g. fireball, adult-red-dragon).";
 
-/// The Python chapter's exact query.
+/// The adventurer's question.
 const QUERY: &str = "What does the Fireball spell do, and how much damage does it deal?";
 
 #[tokio::main]

@@ -1,9 +1,6 @@
 //! Chapter 1 - The Art of Agent Summoning
 //!
-//! A side-by-side port of the Python workshop's `1_strands_basics/simple_agent.py`:
-//!   <https://github.com/aws-samples/sample-once-upon-agentic-ai/tree/main/1_strands_basics>
-//!
-//! Three TODOs, the same three steps as the Python chapter.
+//! Three TODOs: turn on logging, build the agent, then talk to it.
 //!
 //! Run with:
 //!   cargo run --bin ch1-summoning
@@ -16,18 +13,16 @@
 use strands_agents::models::{BedrockModel, ModelConfig};
 use strands_agents::{AgentBuilder, Result};
 
-/// The Python chapter's exact first query.
+/// The adventurer's first line.
 const FIRST_QUERY: &str = "Hi, I am an adventurer ready for adventure!";
 
 #[tokio::main]
 async fn main() -> Result<()> {
     // TODO: Step 1 - Add debug logging to see what your agent is thinking
     //
-    // Python: logging.getLogger("strands").setLevel(logging.DEBUG)
-    // Rust:   the SDK emits `tracing` spans on the `strands_agents` target, so a
-    //         subscriber with an env filter is the direct analogue. Default to
-    //         info so the demo stays readable; RUST_LOG=strands_agents=debug
-    //         opens the floodgates.
+    // The SDK emits `tracing` spans on the `strands_agents` target, so a
+    // subscriber with an env filter shows them. Default to info so the demo
+    // stays readable; RUST_LOG=strands_agents=debug opens the floodgates.
     tracing_subscriber::fmt()
         .with_env_filter(
             tracing_subscriber::EnvFilter::try_from_default_env()
@@ -40,8 +35,8 @@ async fn main() -> Result<()> {
 
     // TODO: Step 2 - Create the agent with the following system prompt: "You are a Game Master for a Table-Top Role-Playing Game (TTRPG)"
     //
-    // Python's Agent() defaults to Bedrock. Rust names the provider explicitly -
-    // that is the only structural difference in this whole chapter.
+    // The builder would pick Bedrock on its own; naming the model keeps every
+    // chapter on the same one.
     let model = game_master_model().await?;
 
     let mut agent = AgentBuilder::new()
@@ -53,9 +48,8 @@ async fn main() -> Result<()> {
 
     // TODO: Step 3 - Invoke your agent with a basic query such as "Hi, I am an adventurer ready for adventure!"
     //
-    // Python: agent("Hi, ...") prints as a side effect.
-    // Rust:   agent.run(..) returns an AgentResult, so the caller decides what
-    //         to do with it.
+    // agent.run(..) prints nothing: it returns an AgentResult, so the caller
+    // decides what to do with it.
     println!("Adventurer: {FIRST_QUERY}\n");
     let result = agent.run(FIRST_QUERY).await?;
     println!("Game Master: {}\n", result.content);

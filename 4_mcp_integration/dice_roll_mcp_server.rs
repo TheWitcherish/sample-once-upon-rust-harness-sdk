@@ -1,16 +1,12 @@
 //! Chapter 4 - Planar Portals: the Dice Roller as an MCP server
 //!
-//! A side-by-side port of the Python workshop's `4_mcp_integration/dice_roll_mcp_server.py`:
-//!   <https://github.com/aws-samples/sample-once-upon-agentic-ai/tree/main/4_mcp_integration>
-//!
 //! Chapter 3's dice roller lived inside the agent's process. Here it moves out,
 //! behind MCP (Model Context Protocol - the standard way agents discover and call
 //! tools that live somewhere else). Any MCP client, in any language, can now roll.
 //!
-//! Python uses `FastMCP`; Rust uses `rmcp`, the official Rust MCP SDK. The
-//! `#[tool]` macro plays the role of `@mcp.tool()`. The one thing FastMCP hides
-//! that Rust shows you: the web server. We mount MCP at `/mcp` on an axum router
-//! and serve it ourselves.
+//! It uses `rmcp`, the official Rust MCP SDK: the `#[tool]` macro turns a method
+//! into an MCP tool. We mount MCP at `/mcp` on an axum router and serve it
+//! ourselves.
 //!
 //! Run with:
 //!   cargo run --bin ch4-dice-mcp-server
@@ -20,7 +16,7 @@
 //!   MCP_ALLOWED_HOSTS  comma-separated Host headers to accept when serving
 //!                      beyond loopback, e.g. "dice.example.com"
 //!
-//! There is no authentication here, same as the Python chapter. Keep it on
+//! There is no authentication here. Keep it on
 //! loopback, or put it behind a proxy that authenticates before exposing it.
 
 use std::env;

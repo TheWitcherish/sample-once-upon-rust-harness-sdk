@@ -1,8 +1,5 @@
 //! Chapter 3 - The Art of Magical Forging: the Dice Roller
 //!
-//! A side-by-side port of the Python workshop's `3_custom_tools/`:
-//!   <https://github.com/aws-samples/sample-once-upon-agentic-ai/tree/main/3_custom_tools>
-//!
 //! Chapter 2 handed the agent a tool someone else wrote. Here we forge our own:
 //! a plain `roll_dice` function, wrapped in the SDK's `Tool` trait so the model
 //! can see it, call it, and get a real random number back instead of inventing one.
@@ -31,8 +28,7 @@ and intelligence abilities scores using 4d6 drop lowest method.";
 
 /// Roll a single die with the given number of faces.
 ///
-/// The same function as the Python workshop's `roll_dice`, minus the decorator:
-/// it knows nothing about agents, so it can be tested on its own.
+/// It knows nothing about agents, so it can be tested on its own.
 fn roll_dice(faces: i64) -> std::result::Result<i64, String> {
     if faces < 1 {
         return Err("Dice must have at least 1 face".to_string());
@@ -42,9 +38,8 @@ fn roll_dice(faces: i64) -> std::result::Result<i64, String> {
 
 /// The bridge between our function and the model.
 ///
-/// Python's `@tool` reads the signature and docstring to build this for you.
-/// In Rust we write the spec by hand: name, description, and a JSON schema the
-/// model fills in when it decides to roll.
+/// We write the spec by hand: name, description, and a JSON schema the model
+/// fills in when it decides to roll.
 struct RollDice;
 
 // TODO: Step 1 - Implement the Tool trait to transform RollDice into a tool
@@ -111,8 +106,7 @@ async fn main() -> Result<()> {
         )
         .init();
 
-    // What the SDK tells the model about our tool - the Rust twin of
-    // Python's `print(roll_dice.tool_spec)`.
+    // What the SDK tells the model about our tool.
     println!("{}\n", serde_json::to_string_pretty(&RollDice.spec())?);
 
     let model = game_master_model().await?;
