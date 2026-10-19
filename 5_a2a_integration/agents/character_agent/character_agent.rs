@@ -98,7 +98,7 @@ struct CreateParams {
     race: String,
     gender: String,
     #[serde(default)]
-    stats_dict: Stats,
+    stats: Stats,
 }
 
 /// The file layout: `{"_default": {"1": {...}, "2": {...}}}`, one entry per
@@ -277,7 +277,7 @@ impl CreateCharacter {
             gender: params.gender,
             level: 1,
             experience: 0,
-            stats: params.stats_dict,
+            stats: params.stats,
             inventory: vec![
                 InventoryItem {
                     item_name: "Starting Equipment Pack".to_string(),
@@ -309,7 +309,7 @@ impl Tool for CreateCharacter {
              at level 1 with 0 experience, a Starting Equipment Pack and 100 gold pieces.\n\n\
              Names are not checked for uniqueness: creating \"Thorin\" twice stores two \
              characters. Check with find_character_by_name if in doubt. \
-             Any ability score missing from stats_dict defaults to 10.",
+             Any ability score missing from stats defaults to 10.",
             json!({
                 "type": "object",
                 "properties": {
@@ -317,7 +317,7 @@ impl Tool for CreateCharacter {
                     "character_class": { "type": "string", "description": "A class such as \"Fighter\", \"Wizard\" or \"Rogue\"." },
                     "race": { "type": "string", "description": "A race such as \"Dwarf\", \"Elf\" or \"Human\"." },
                     "gender": { "type": "string", "description": "The character's gender, e.g. \"Female\"; pick one if the player did not say." },
-                    "stats_dict": {
+                    "stats": {
                         "type": "object",
                         "description": "Ability scores, each an integer (typically 3 to 18), e.g. {\"strength\": 16, \"dexterity\": 12}.",
                         "properties": {
@@ -330,7 +330,7 @@ impl Tool for CreateCharacter {
                         }
                     }
                 },
-                "required": ["name", "character_class", "race", "gender", "stats_dict"]
+                "required": ["name", "character_class", "race", "gender", "stats"]
             }),
         )
     }
@@ -585,7 +585,7 @@ mod tests {
             &tool,
             json!({
                 "name": "Alice", "character_class": "Wizard", "race": "Elf",
-                "gender": "Female", "stats_dict": { "intelligence": 17 }
+                "gender": "Female", "stats": { "intelligence": 17 }
             }),
         )
         .await;
