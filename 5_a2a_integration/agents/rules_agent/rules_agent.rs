@@ -169,7 +169,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 // carry the same types and the same `Embedder`: keep the two copies identical.
 type KbResult<T> = std::result::Result<T, Box<dyn std::error::Error + Send + Sync>>;
 
-/// Verified live (us-east-1, 2026-10-08, `aws bedrock get-foundation-model`):
+/// Verified live (us-west-2, 2026-10-19, `aws bedrock get-foundation-model`):
 /// `ACTIVE`, output modality `EMBEDDING`. Override with `EMBEDDING_MODEL_ID`.
 const DEFAULT_EMBEDDING_MODEL_ID: &str = "amazon.titan-embed-text-v2:0";
 /// Titan V2 offers 256, 512 or 1024. 512 keeps the file small and search sharp.
@@ -300,11 +300,10 @@ impl Embedder {
 
 /// Default Bedrock model for the whole adventure.
 ///
-/// Verified live against the configured Bedrock account (us-east-1, 2026-10-18
-/// via `aws bedrock list-inference-profiles`): `ACTIVE`. Override it with
-/// `MODEL_ID` for a cheaper run, e.g.
-/// `export MODEL_ID=us.anthropic.claude-haiku-5-5`.
-const DEFAULT_MODEL_ID: &str = "us.anthropic.claude-sonnet-5-5";
+/// Verified live against the configured Bedrock account (us-west-2, 2026-10-19
+/// via `aws bedrock get-inference-profile`): `ACTIVE`. Override it with
+/// `MODEL_ID`, e.g. `export MODEL_ID=us.anthropic.claude-sonnet-5-5`.
+const DEFAULT_MODEL_ID: &str = "us.anthropic.claude-haiku-5-5";
 
 /// Resolve the model id from `MODEL_ID`, falling back to the verified default.
 fn model_id() -> String {
@@ -314,7 +313,7 @@ fn model_id() -> String {
 /// Build the storyteller model on Amazon Bedrock.
 ///
 /// Honours `MODEL_ID` and the standard AWS environment (`AWS_REGION`,
-/// `AWS_PROFILE`, ...). It sets no temperature: Claude Sonnet 5.5 refuses the
+/// `AWS_PROFILE`, ...). It sets no temperature: Claude Haiku 5.5 refuses the
 /// parameter ("`temperature` is deprecated for this model").
 async fn game_master_model() -> strands_agents::Result<BedrockModel> {
     let config = ModelConfig::new(model_id());

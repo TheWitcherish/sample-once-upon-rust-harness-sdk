@@ -23,7 +23,7 @@ file needs, such as the model setup, sit at the bottom of that file.
 ```sh
 # 1. point your shell at an AWS account with Bedrock access
 export AWS_PROFILE=YOUR_PROFILE
-export AWS_REGION=YOUR_AWS_REGION          # e.g. us-east-1
+export AWS_REGION=YOUR_AWS_REGION          # e.g. us-west-2
 
 # 2. summon your first game master
 cargo run --bin ch1-summoning
@@ -34,10 +34,10 @@ Chapter 1 is done. On `main` each chapter is a skeleton: fill in its `// TODO` s
 it from the `solution` branch to see the finished version. While a skeleton is unfinished, `cargo`
 warns about unused imports and items: each warning points at a step you have not wired in yet.
 
-The agents run on **Amazon Bedrock** (Claude Sonnet 5.5 by default). Pick a cheaper model any time:
+The agents run on **Amazon Bedrock** (Claude Haiku 5.5 by default). Pick another model any time:
 
 ```sh
-export MODEL_ID=YOUR_MODEL   # e.g. us.anthropic.claude-haiku-5-5
+export MODEL_ID=YOUR_MODEL   # e.g. us.anthropic.claude-sonnet-5-5
 ```
 
 Model ids are read from `MODEL_ID` with a verified fallback; the region comes from the standard AWS
