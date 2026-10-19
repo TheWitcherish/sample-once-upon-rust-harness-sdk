@@ -1,4 +1,4 @@
-# Once Upon Agentic AI (Rust) - Chapter 6: Web Interface
+# Once Upon Rust Harness SDK - Chapter 6: Web Interface
 
 This is a **sample** for workshops, livestreams and experiments, not production code. This `ui`
 branch holds only the browser UI: a Vue 3 + TypeScript app where you play the Chapter 5 Game Master.
