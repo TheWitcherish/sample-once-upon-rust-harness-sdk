@@ -110,7 +110,7 @@ async fn main() -> KbResult<()> {
 // carry the same types and the same `Embedder`: keep the two copies identical.
 type KbResult<T> = std::result::Result<T, Box<dyn std::error::Error + Send + Sync>>;
 
-/// Verified live (us-east-1, 2026-10-08, `aws bedrock get-foundation-model`):
+/// Verified live (us-west-2, 2026-10-19, `aws bedrock get-foundation-model`):
 /// `ACTIVE`, output modality `EMBEDDING`. Override with `EMBEDDING_MODEL_ID`.
 const DEFAULT_EMBEDDING_MODEL_ID: &str = "amazon.titan-embed-text-v2:0";
 /// Titan V2 offers 256, 512 or 1024. 512 keeps the file small and search sharp.
