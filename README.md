@@ -11,12 +11,9 @@ opposite - a Game Master for a Table-Top Role-Playing Game (TTRPG) that remember
 learns new tricks one chapter at a time. One agent first, then a tool it did not have to write, then
 a tool it *did*, then the same tool over a wire, then a whole party of agents talking to each other.
 
-Same philosophy and patterns as the Python workshop; the typed boundaries and the function names line
-up so you can read the two side by side. Where Rust asks something different of you - naming the model
-provider explicitly, an `AgentResult` instead of a print - the code says so in a comment, right where
-it happens. Like the Python workshop, each chapter folder holds all of the code it runs: the helpers a
-file needs, such as the model setup, sit at the bottom of that file. Chapter 5's builder and Rules Agent
-also share one file, `5_a2a_integration/utils/knowledge_base.rs`, which reaches the knowledge base.
+Each chapter folder holds all of the code it runs: the helpers a file needs, such as the model setup,
+sit at the bottom of that file. Chapter 5's builder and Rules Agent also share one file,
+`5_a2a_integration/utils/knowledge_base.rs`, which reaches the knowledge base.
 
 ## Quick start (30-Second Kickoff)
 
