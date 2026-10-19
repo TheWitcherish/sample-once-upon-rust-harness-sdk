@@ -34,8 +34,8 @@ The Game Master only accepts browser calls from `http://localhost:<port>` origin
 In a browser with WebMCP, the W3C draft that lets a page hand tools to an AI agent (only Chrome 149+
 and Edge 150+, as an experimental trial), the game screen registers two tools: `take_action` plays a
 turn through the same path as the input box, and `read_character_sheet` reads your sheet. Elsewhere
-the page works as before. Chapter 0, Step 7 and Chapter 6, Part 5 of the workshop connect a coding
-agent to them through Chrome DevTools MCP.
+the page works as before. Chapter 0's "Prepare a Browser for WebMCP" step and Chapter 6, Part 5 of the
+workshop connect a coding agent to them through Chrome DevTools MCP.
 
 ## Checks
 
