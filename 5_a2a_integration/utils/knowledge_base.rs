@@ -1,9 +1,8 @@
 //! Chapter 5 - The knowledge base code the builder and the Rules Agent share
 //!
-//! The Rust side of the Python chapter's ChromaDB collection: Basic Rules
-//! passages and their Titan embeddings, in a local ExtendDB table with a vector
-//! index. ExtendDB answers the DynamoDB API, so this is plain `aws-sdk-dynamodb`
-//! code.
+//! Basic Rules passages and their Titan embeddings, in a local ExtendDB table
+//! with a vector index. ExtendDB answers the DynamoDB API, so this is plain
+//! `aws-sdk-dynamodb` code.
 //!
 //! Not a program of its own: `create_knowledge_base.rs` and `rules_agent.rs`
 //! each pull this file in with a `mod knowledge_base;` declaration, so both

@@ -46,7 +46,7 @@ const SYSTEM_PROMPT: &str = "You are a 5e rules expert. For each rules question,
 const DEFAULT_PORT: u16 = 8000;
 const TOP_K: usize = 3;
 
-/// The same layout as the Python tool: `[Page N] passage`, blank-line separated.
+/// Each passage as `[Page N] passage`, blank-line separated.
 fn format_passages(hits: &[(f64, Chunk)]) -> String {
     hits.iter()
         .map(|(_, c)| format!("[Page {}] {}", c.page, c.text))
@@ -125,8 +125,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         )
         .init();
 
-    // Python opens ChromaDB on the first query; opening the table at startup
-    // fails before the server is advertised, not in the middle of a game.
+    // Opening the table at startup fails before the server is advertised, not
+    // in the middle of a game.
     let kb = KnowledgeBase::open(&extenddb_endpoint(), &rules_table())
         .await
         .map_err(|e| e.to_string())?;
