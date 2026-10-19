@@ -2,6 +2,7 @@ import { ref, computed, onMounted } from 'vue';
 import { useRoute } from 'vue-router';
 import { useGameStore } from '@/stores/gameStore';
 import { useGameApi } from '@/composables/useGameApi';
+import { useWebMcpTools } from '@/composables/useWebMcpTools';
 import CharacterStatsPanel from '@/components/CharacterStatsPanel.vue';
 import MessageList from '@/components/MessageList.vue';
 import ActionSuggestions from '@/components/ActionSuggestions.vue';
@@ -34,14 +35,22 @@ async function handleAction(text) {
     try {
         const storyOutput = await api.sendInquiry(text);
         messages.value = [...messages.value, { role: 'assistant', storyOutput }];
+        return storyOutput;
     }
     catch (e) {
         sendError.value = e instanceof Error ? e.message : 'Failed to send message';
+        return null;
     }
     finally {
         sending.value = false;
     }
 }
+useWebMcpTools({
+    takeAction: handleAction,
+    readCharacterSheet: () => useGameApi(store.serverUrl).fetchUser(route.params.characterName),
+    isBusy: () => sending.value,
+    lastError: () => sendError.value,
+});
 onMounted(async () => {
     const characterName = route.params.characterName;
     const api = useGameApi(store.serverUrl);

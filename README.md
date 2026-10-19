@@ -29,10 +29,18 @@ The Rust agents that answer it live on the `main` branch.
 The Game Master only accepts browser calls from `http://localhost:<port>` origins, so open the UI on
 `localhost`.
 
+## Let your coding agent play
+
+In a browser with WebMCP, the W3C draft that lets a page hand tools to an AI agent (only Chrome 149+
+and Edge 150+, as an experimental trial), the game screen registers two tools: `take_action` plays a
+turn through the same path as the input box, and `read_character_sheet` reads your sheet. Elsewhere
+the page works as before. Chapter 0, Step 7 and Chapter 6, Part 5 of the workshop connect a coding
+agent to them through Chrome DevTools MCP.
+
 ## Checks
 
 ```sh
-npm test        # 113 tests (Vitest)
+npm test        # 126 tests (Vitest)
 npm run build   # type-check with vue-tsc, then bundle with Vite
 ```
 

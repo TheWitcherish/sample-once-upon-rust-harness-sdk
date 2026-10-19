@@ -40,11 +40,12 @@ import { ref, computed, onMounted } from 'vue'
 import { useRoute } from 'vue-router'
 import { useGameStore } from '@/stores/gameStore'
 import { useGameApi } from '@/composables/useGameApi'
+import { useWebMcpTools } from '@/composables/useWebMcpTools'
 import CharacterStatsPanel from '@/components/CharacterStatsPanel.vue'
 import MessageList from '@/components/MessageList.vue'
 import ActionSuggestions from '@/components/ActionSuggestions.vue'
 import PlayerInput from '@/components/PlayerInput.vue'
-import type { CharacterStats, ParsedMessage } from '@/types'
+import type { CharacterStats, ParsedMessage, StoryOutput } from '@/types'
 
 const route = useRoute()
 const store = useGameStore()
@@ -70,7 +71,7 @@ const latestSuggestions = computed<string[]>(() => {
   return []
 })
 
-async function handleAction(text: string) {
+async function handleAction(text: string): Promise<StoryOutput | null> {
   const api = useGameApi(store.serverUrl)
   sending.value = true
   sendError.value = null
@@ -79,12 +80,21 @@ async function handleAction(text: string) {
   try {
     const storyOutput = await api.sendInquiry(text)
     messages.value = [...messages.value, { role: 'assistant', storyOutput }]
+    return storyOutput
   } catch (e) {
     sendError.value = e instanceof Error ? e.message : 'Failed to send message'
+    return null
   } finally {
     sending.value = false
   }
 }
+
+useWebMcpTools({
+  takeAction: handleAction,
+  readCharacterSheet: () => useGameApi(store.serverUrl).fetchUser(route.params.characterName as string),
+  isBusy: () => sending.value,
+  lastError: () => sendError.value,
+})
 
 onMounted(async () => {
   const characterName = route.params.characterName as string
