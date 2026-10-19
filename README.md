@@ -43,21 +43,3 @@ agent to them through Chrome DevTools MCP.
 npm test        # 126 tests (Vitest)
 npm run build   # type-check with vue-tsc, then bundle with Vite
 ```
-
-## Changes from the Python workshop's `ui-2` branch
-
-- Runs locally with `npm run dev`; the GitHub Pages workflow and its redirect page are removed.
-- `npm audit fix`: in-range updates (`vue` 3.5.43, `vite` 6.4.4, `postcss`, `nanoid` and more), so the
-  shipped app has no known advisories.
-- Vitest 5 (from 3), which clears the test runner's `tinypool` and `@vitest/mocker` advisories, so
-  `npm audit` reports 0 vulnerabilities. No test or config changes were needed.
-- Dice results are numbers, matching `DiceOutput.result: int` on both backends.
-- The fallback dice shape names itself for screen readers (`aria-label`).
-- Tests updated to the current behaviour (hidden first prompt, closing animation, Send button state,
-  dice tooltip, page background), and generic TTRPG wording in theme comments.
-
-## Credits
-
-Ported from the `ui-2` branch of
-[aws-samples/sample-once-upon-agentic-ai](https://github.com/aws-samples/sample-once-upon-agentic-ai)
-(MIT-0).
