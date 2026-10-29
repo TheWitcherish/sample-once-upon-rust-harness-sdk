@@ -70,11 +70,11 @@ repo. Put your copy at `5_a2a_integration/utils/DnD_BasicRules_2018.pdf`.
 
 The Rules Agent searches its passages in [ExtendDB](https://github.com/ExtendDB/extenddb), an
 open-source, DynamoDB-compatible database written in Rust, through a vector index. Install its
-developer-mode build once (about a minute), then start it from the repo root in a terminal of its own
+developer-mode build once (about two minutes), then start it from the repo root in a terminal of its own
 and leave it running:
 
 ```sh
-cargo install --git https://github.com/ExtendDB/extenddb --tag v0.1.13 --locked \
+cargo install --git https://github.com/ExtendDB/extenddb --tag v0.1.14 --locked \
   --no-default-features --features sqlite,dev-mode extenddb
 extenddb serve --foreground   # 127.0.0.1:18443, data in ./extenddb.sqlite
 ```
